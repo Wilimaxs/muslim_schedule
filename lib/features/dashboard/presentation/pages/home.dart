@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:lottie/lottie.dart';
 import 'package:muslim_schedule/features/dashboard/domains/api/aladhan_api.dart';
+import 'package:muslim_schedule/features/dashboard/domains/api/aladhan_watch.dart';
 import 'package:muslim_schedule/features/dashboard/domains/models/aladhan_model.dart';
+import 'package:muslim_schedule/features/dashboard/domains/models/aladhan_modelwatch.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:intl/intl.dart';
@@ -21,6 +23,7 @@ class _HomePageState extends State<HomePage> {
   bool isLoading = false;
   Map<String, dynamic>? prayerTimes;
   AladhanModel? schedule;
+  AladhanModelday? aladay;
 
   Future<void> fetchlocation() async {
     if (!mounted) return;
@@ -33,16 +36,18 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      final apialadhan = AladhanApi(
-        baseUrl:
-            'https://api.aladhan.com/v1/timings/$formattedDate?latitude=$lat&longitude=$long&method=20',
-      );
+      String baseUrl =
+          'https://api.aladhan.com/v1/timings/$formattedDate?latitude=$lat&longitude=$long&method=20';
+      final apialadhan = AladhanApi(baseUrl: baseUrl);
+      final apialadhanday = AladhanApiday(baseUrl: baseUrl);
       final result = await apialadhan.fetchapi();
+      final resultDay = await apialadhanday.fetchapiwatch();
 
       if (!mounted) return;
 
       setState(() {
         schedule = result;
+        aladay = resultDay;
         isLoading = false;
       });
     } catch (e) {
@@ -113,6 +118,27 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    initLocation();
+  }
+
+  Future<void> initLocation() async {
+    try {
+      Position position = await getCurrentLocation();
+      setState(() {
+        lat = position.latitude.toString();
+        long = position.longitude.toString();
+      });
+
+      await getAddressFromLatLng(position.latitude, position.longitude);
+      fetchlocation();
+    } catch (e) {
+      print("Error: $e");
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bool running = true;
     Stream<String> clock() async* {
@@ -140,7 +166,7 @@ class _HomePageState extends State<HomePage> {
           children: [
             Container(
               width: MediaQuery.of(context).size.width,
-              height: MediaQuery.of(context).size.height * 0.3,
+              height: MediaQuery.of(context).size.height * 0.35,
               color: Colors.green.shade400,
               child: Center(
                 child: Transform.scale(
@@ -170,48 +196,31 @@ class _HomePageState extends State<HomePage> {
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: InkWell(
-                  onTap: () async {
-                    try {
-                      Position position = await getCurrentLocation();
-                      setState(() {
-                        lat = position.latitude.toString();
-                        long = position.longitude.toString();
-                      });
-                      await getAddressFromLatLng(
-                        position.latitude,
-                        position.longitude,
-                      );
-                      fetchlocation();
-                    } catch (e) {
-                      print("Error: $e");
-                    }
-                  },
-                  child: Row(
-                    children: [
-                      Icon(Icons.location_on, color: Colors.amber, size: 35),
-                      Expanded(
-                        child: Text(
-                          locationText, // Address from geocoding
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          overflow:
-                              TextOverflow
-                                  .ellipsis, // Add ellipsis (...) for long text
-                          maxLines: 1, // Limit to 1 line
-                          softWrap: false, // Prevents wrapping to new line
-                        ),
+                child: Row(
+                  children: [
+                    Icon(Icons.location_on, color: Colors.amber, size: 35),
+                    Expanded(
+                      child: Text(
+                        locationText, // Address from geocoding
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        overflow:
+                            TextOverflow
+                                .ellipsis, // Add ellipsis (...) for long text
+                        maxLines: 1, // Limit to 1 line
+                        softWrap: false, // Prevents wrapping to new line
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
+
             SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
                 width: MediaQuery.of(context).size.width,
-                height: MediaQuery.of(context).size.height * 0.11,
+
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.all(Radius.circular(30)),
                   color: Colors.white,
@@ -253,7 +262,9 @@ class _HomePageState extends State<HomePage> {
                         Text('|', style: Theme.of(context).textTheme.bodyLarge),
                         SizedBox(width: 20),
                         Text(
-                          '18:15:21',
+                          schedule?.maghrib != null
+                              ? '${schedule?.maghrib}.00'
+                              : 'Loading...',
                           style: Theme.of(context).textTheme.bodyLarge,
                         ),
                       ],
@@ -279,7 +290,7 @@ class _HomePageState extends State<HomePage> {
                   cells: <DataCell>[
                     DataCell(Text('1')),
                     DataCell(Text('Imsak')),
-                    DataCell(Text('1')),
+                    DataCell(Text(aladay?.day ?? 'loading...')),
                     DataCell(Text(schedule?.imsak ?? 'Loading...')),
                   ],
                 ),
@@ -287,7 +298,7 @@ class _HomePageState extends State<HomePage> {
                   cells: <DataCell>[
                     DataCell(Text('2')),
                     DataCell(Text('Shubuh')),
-                    DataCell(Text('1')),
+                    DataCell(Text(aladay?.day ?? 'loading...')),
                     DataCell(Text(schedule?.shubuh ?? 'Loading...')),
                   ],
                 ),
@@ -295,7 +306,7 @@ class _HomePageState extends State<HomePage> {
                   cells: <DataCell>[
                     DataCell(Text('3')),
                     DataCell(Text('Dzuhur')),
-                    DataCell(Text('1')),
+                    DataCell(Text(aladay?.day ?? 'loading...')),
                     DataCell(Text(schedule?.dzuhur ?? 'Loading...')),
                   ],
                 ),
@@ -303,7 +314,7 @@ class _HomePageState extends State<HomePage> {
                   cells: <DataCell>[
                     DataCell(Text('4')),
                     DataCell(Text('Ashar')),
-                    DataCell(Text('1')),
+                    DataCell(Text(aladay?.day ?? 'loading...')),
                     DataCell(Text(schedule?.ashar ?? 'Loading...')),
                   ],
                 ),
@@ -311,7 +322,7 @@ class _HomePageState extends State<HomePage> {
                   cells: <DataCell>[
                     DataCell(Text('5')),
                     DataCell(Text('Maghrib')),
-                    DataCell(Text('1')),
+                    DataCell(Text(aladay?.day ?? 'loading...')),
                     DataCell(Text(schedule?.maghrib ?? 'Loading...')),
                   ],
                 ),
@@ -319,7 +330,7 @@ class _HomePageState extends State<HomePage> {
                   cells: <DataCell>[
                     DataCell(Text('6')),
                     DataCell(Text('Isya')),
-                    DataCell(Text('1')),
+                    DataCell(Text(aladay?.day ?? 'loading...')),
                     DataCell(Text(schedule?.isya ?? 'Loading...')),
                   ],
                 ),
