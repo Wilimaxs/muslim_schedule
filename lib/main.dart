@@ -13,10 +13,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: FirebaseOptions(
-      apiKey: 'AIzaSyDPodAz8wJHfzK_Mt11oAg9QuLXKIZGdC4',
-      appId: '1:378862027110:android:da36818bd9ce3be53e48a7',
-      messagingSenderId: '378862027110',
-      projectId: 'muslimschedule',
     ),
   );
   await AndroidAlarmManager.initialize();
