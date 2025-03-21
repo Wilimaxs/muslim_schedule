@@ -5,6 +5,7 @@ import 'package:muslim_schedule/features/dashboard/domains/api/aladhan_api.dart'
 import 'package:muslim_schedule/features/dashboard/domains/api/aladhan_watch.dart';
 import 'package:muslim_schedule/features/dashboard/domains/models/aladhan_model.dart';
 import 'package:muslim_schedule/features/dashboard/domains/models/aladhan_modelwatch.dart';
+import 'package:muslim_schedule/features/dashboard/presentation/widgets/shimmer_loading.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:intl/intl.dart';
@@ -20,7 +21,7 @@ class _HomePageState extends State<HomePage> {
   String lat = '';
   String long = '';
   String locationText = "Pilih Lokasi";
-  bool isLoading = false;
+  bool isLoading = true;
   Map<String, dynamic>? prayerTimes;
   AladhanModel? schedule;
   AladhanModelday? aladay;
@@ -161,183 +162,211 @@ class _HomePageState extends State<HomePage> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Container(
-              width: MediaQuery.of(context).size.width,
-              height: MediaQuery.of(context).size.height * 0.35,
-              color: Colors.green.shade400,
-              child: Center(
-                child: Transform.scale(
-                  scale: 11.0,
-                  child: Opacity(
-                    opacity: 0.50,
-                    child: Container(
-                      child: Lottie.asset(
-                        'assets/lottie/Animation_home.json',
-                        width: 50,
-                        height: 50,
+      body: AnimatedSwitcher(
+        duration: Duration(milliseconds: 500), // Durasi animasi transisi
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        child:
+            isLoading
+                ? const ShimmerLoading()
+                : SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: MediaQuery.of(context).size.width,
+                        height: MediaQuery.of(context).size.height * 0.3,
+                        color: Colors.green.shade400,
+                        child: Center(
+                          child: Transform.scale(
+                            scale: 11.0,
+                            child: Opacity(
+                              opacity: 0.50,
+                              child: Container(
+                                child: Lottie.asset(
+                                  'assets/lottie/Animation_home.json',
+                                  width: 50,
+                                  height: 50,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      Container(
+                        width: MediaQuery.of(context).size.width,
+                        height: MediaQuery.of(context).size.height * 0.05,
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade400,
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(50),
+                            bottomRight: Radius.circular(50),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.location_on,
+                                color: Colors.amber,
+                                size: 35,
+                              ),
+                              Expanded(
+                                child: Text(
+                                  locationText, // Address from geocoding
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                  overflow:
+                                      TextOverflow
+                                          .ellipsis, // Add ellipsis (...) for long text
+                                  maxLines: 1, // Limit to 1 line
+                                  softWrap:
+                                      false, // Prevents wrapping to new line
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Container(
+                          width: MediaQuery.of(context).size.width,
+
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.all(Radius.circular(30)),
+                            color: Colors.white,
+                            border: Border.all(color: Colors.black, width: 3.0),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withValues(),
+                                spreadRadius: 1,
+                                blurRadius: 1,
+                                offset: Offset(
+                                  0,
+                                  3,
+                                ), // changes position of shadow
+                              ),
+                            ],
+                          ),
+
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Maghrib',
+                                style: Theme.of(context).textTheme.displaySmall,
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  StreamBuilder(
+                                    stream: clock(),
+                                    builder: (
+                                      context,
+                                      AsyncSnapshot<String> snapshot,
+                                    ) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return const CircularProgressIndicator();
+                                      }
+                                      return Text(
+                                        snapshot.data!,
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.bodyLarge,
+                                      );
+                                    },
+                                  ),
+                                  SizedBox(width: 20),
+                                  Text(
+                                    '|',
+                                    style:
+                                        Theme.of(context).textTheme.bodyLarge,
+                                  ),
+                                  SizedBox(width: 20),
+                                  Text(
+                                    schedule?.maghrib != null
+                                        ? '${schedule?.maghrib}.00'
+                                        : 'Loading...',
+                                    style:
+                                        Theme.of(context).textTheme.bodyLarge,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      Text(
+                        'Jadwal Hari ini',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      DataTable(
+                        columns: const <DataColumn>[
+                          DataColumn(label: Text('No')),
+                          DataColumn(label: Text('Nama')),
+                          DataColumn(label: Text('Hari')),
+                          DataColumn(label: Text('Waktu')),
+                        ],
+                        rows: <DataRow>[
+                          DataRow(
+                            cells: <DataCell>[
+                              DataCell(Text('1')),
+                              DataCell(Text('Imsak')),
+                              DataCell(Text(aladay?.day ?? 'loading...')),
+                              DataCell(Text(schedule?.imsak ?? 'Loading...')),
+                            ],
+                          ),
+                          DataRow(
+                            cells: <DataCell>[
+                              DataCell(Text('2')),
+                              DataCell(Text('Shubuh')),
+                              DataCell(Text(aladay?.day ?? 'loading...')),
+                              DataCell(Text(schedule?.shubuh ?? 'Loading...')),
+                            ],
+                          ),
+                          DataRow(
+                            cells: <DataCell>[
+                              DataCell(Text('3')),
+                              DataCell(Text('Dzuhur')),
+                              DataCell(Text(aladay?.day ?? 'loading...')),
+                              DataCell(Text(schedule?.dzuhur ?? 'Loading...')),
+                            ],
+                          ),
+                          DataRow(
+                            cells: <DataCell>[
+                              DataCell(Text('4')),
+                              DataCell(Text('Ashar')),
+                              DataCell(Text(aladay?.day ?? 'loading...')),
+                              DataCell(Text(schedule?.ashar ?? 'Loading...')),
+                            ],
+                          ),
+                          DataRow(
+                            cells: <DataCell>[
+                              DataCell(Text('5')),
+                              DataCell(Text('Maghrib')),
+                              DataCell(Text(aladay?.day ?? 'loading...')),
+                              DataCell(Text(schedule?.maghrib ?? 'Loading...')),
+                            ],
+                          ),
+                          DataRow(
+                            cells: <DataCell>[
+                              DataCell(Text('6')),
+                              DataCell(Text('Isya')),
+                              DataCell(Text(aladay?.day ?? 'loading...')),
+                              DataCell(Text(schedule?.isya ?? 'Loading...')),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ),
-            Container(
-              width: MediaQuery.of(context).size.width,
-              height: MediaQuery.of(context).size.height * 0.05,
-              decoration: BoxDecoration(
-                color: Colors.green.shade400,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(50),
-                  bottomRight: Radius.circular(50),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Icon(Icons.location_on, color: Colors.amber, size: 35),
-                    Expanded(
-                      child: Text(
-                        locationText, // Address from geocoding
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        overflow:
-                            TextOverflow
-                                .ellipsis, // Add ellipsis (...) for long text
-                        maxLines: 1, // Limit to 1 line
-                        softWrap: false, // Prevents wrapping to new line
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                width: MediaQuery.of(context).size.width,
-
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.all(Radius.circular(30)),
-                  color: Colors.white,
-                  border: Border.all(color: Colors.black, width: 3.0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withValues(),
-                      spreadRadius: 1,
-                      blurRadius: 1,
-                      offset: Offset(0, 3), // changes position of shadow
-                    ),
-                  ],
-                ),
-
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Maghrib',
-                      style: Theme.of(context).textTheme.displaySmall,
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        StreamBuilder(
-                          stream: clock(),
-                          builder: (context, AsyncSnapshot<String> snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const CircularProgressIndicator();
-                            }
-                            return Text(
-                              snapshot.data!,
-                              style: Theme.of(context).textTheme.bodyLarge,
-                            );
-                          },
-                        ),
-                        SizedBox(width: 20),
-                        Text('|', style: Theme.of(context).textTheme.bodyLarge),
-                        SizedBox(width: 20),
-                        Text(
-                          schedule?.maghrib != null
-                              ? '${schedule?.maghrib}.00'
-                              : 'Loading...',
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(height: 20),
-            Text(
-              'Jadwal Hari ini',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            DataTable(
-              columns: const <DataColumn>[
-                DataColumn(label: Text('No')),
-                DataColumn(label: Text('Nama')),
-                DataColumn(label: Text('Hari')),
-                DataColumn(label: Text('Waktu')),
-              ],
-              rows: <DataRow>[
-                DataRow(
-                  cells: <DataCell>[
-                    DataCell(Text('1')),
-                    DataCell(Text('Imsak')),
-                    DataCell(Text(aladay?.day ?? 'loading...')),
-                    DataCell(Text(schedule?.imsak ?? 'Loading...')),
-                  ],
-                ),
-                DataRow(
-                  cells: <DataCell>[
-                    DataCell(Text('2')),
-                    DataCell(Text('Shubuh')),
-                    DataCell(Text(aladay?.day ?? 'loading...')),
-                    DataCell(Text(schedule?.shubuh ?? 'Loading...')),
-                  ],
-                ),
-                DataRow(
-                  cells: <DataCell>[
-                    DataCell(Text('3')),
-                    DataCell(Text('Dzuhur')),
-                    DataCell(Text(aladay?.day ?? 'loading...')),
-                    DataCell(Text(schedule?.dzuhur ?? 'Loading...')),
-                  ],
-                ),
-                DataRow(
-                  cells: <DataCell>[
-                    DataCell(Text('4')),
-                    DataCell(Text('Ashar')),
-                    DataCell(Text(aladay?.day ?? 'loading...')),
-                    DataCell(Text(schedule?.ashar ?? 'Loading...')),
-                  ],
-                ),
-                DataRow(
-                  cells: <DataCell>[
-                    DataCell(Text('5')),
-                    DataCell(Text('Maghrib')),
-                    DataCell(Text(aladay?.day ?? 'loading...')),
-                    DataCell(Text(schedule?.maghrib ?? 'Loading...')),
-                  ],
-                ),
-                DataRow(
-                  cells: <DataCell>[
-                    DataCell(Text('6')),
-                    DataCell(Text('Isya')),
-                    DataCell(Text(aladay?.day ?? 'loading...')),
-                    DataCell(Text(schedule?.isya ?? 'Loading...')),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

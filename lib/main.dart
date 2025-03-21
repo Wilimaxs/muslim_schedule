@@ -1,13 +1,24 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:muslim_schedule/features/dashboard/presentation/pages/navigation.dart';
 import 'package:muslim_schedule/splash.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: FirebaseOptions(
+      apiKey: 'AIzaSyDPodAz8wJHfzK_Mt11oAg9QuLXKIZGdC4',
+      appId: '1:378862027110:android:da36818bd9ce3be53e48a7',
+      messagingSenderId: '378862027110',
+      projectId: 'muslimschedule',
+    ),
+  );
   await AndroidAlarmManager.initialize();
   await initializeNotifications();
   runApp(const MyApp());
@@ -20,18 +31,24 @@ Future<void> initializeNotifications() async {
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
 
-  const InitializationSettings initializationSettings = InitializationSettings(
+  final InitializationSettings initializationSettings = InitializationSettings(
     android: initializationSettingsAndroid,
   );
 
   await flutterLocalNotificationsPlugin.initialize(
     initializationSettings,
-    onDidReceiveNotificationResponse: (NotificationResponse details) {
-      // Ketika notifikasi diklik, hentikan musik
-      stopAlarmSound();
+    onDidReceiveNotificationResponse: (NotificationResponse details) async {
+      print("🔔 Notifikasi diklik! Payload: ${details.payload}");
+
+      if (details.actionId == 'STOP_ALARM') {
+        print("🛑 Tombol Stop Alarm ditekan!");
+        await stopAlarmSound();
+        await flutterLocalNotificationsPlugin.cancel(0); // Hapus notifikasi
+      }
     },
   );
 }
+
 
 final AudioPlayer audioPlayer = AudioPlayer();
 bool isPlaying = false;
@@ -48,7 +65,7 @@ void scheduleAlarm(int id, DateTime dateTime) async {
 
 Future<void> playAlarmSound() async {
   if (!isPlaying) {
-    await audioPlayer.play(AssetSource('alarm.mp3')); 
+    await audioPlayer.play(AssetSource('alarm_2.mp3'));
     isPlaying = true;
   }
 }
@@ -58,15 +75,20 @@ void alarmCallback() async {
   playAlarmSound();
 }
 
-
-
 // Fungsi untuk menghentikan musik alarm
 Future<void> stopAlarmSound() async {
   if (isPlaying) {
+    print("🔴 Menghentikan suara alarm...");
     await audioPlayer.stop();
+    await audioPlayer.release();
+    await audioPlayer.dispose();
     isPlaying = false;
+    print("✅ Alarm berhenti.");
+  } else {
+    print("⚠️ Alarm sudah berhenti sebelumnya.");
   }
 }
+
 
 Future<void> showNotification() async {
   const AndroidNotificationDetails androidPlatformChannelSpecifics =
@@ -76,11 +98,20 @@ Future<void> showNotification() async {
     importance: Importance.max,
     priority: Priority.high,
     playSound: true,
-    sound: RawResourceAndroidNotificationSound('alarm_sound'),
+    autoCancel: false, // Jangan otomatis hilang, biar user bisa stop manual
+    sound: RawResourceAndroidNotificationSound('alarm_2'),
+    actions: <AndroidNotificationAction>[
+      AndroidNotificationAction(
+        'STOP_ALARM', // Unique action ID
+        'Stop Alarm', // Teks tombol di notifikasi
+        showsUserInterface: true, // Pastikan UI muncul
+      ),
+    ],
   );
 
-  const NotificationDetails platformChannelSpecifics =
-      NotificationDetails(android: androidPlatformChannelSpecifics);
+  const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    android: androidPlatformChannelSpecifics,
+  );
 
   await flutterLocalNotificationsPlugin.show(
     0,
@@ -90,13 +121,13 @@ Future<void> showNotification() async {
   );
 }
 
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Muslim Schedule',
       theme: ThemeData(

@@ -5,9 +5,11 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:muslim_schedule/features/alarm/domains/API/aladhan_api_sche.dart';
+import 'package:muslim_schedule/features/alarm/domains/API/save_data.dart';
 import 'package:muslim_schedule/features/alarm/domains/models/aladhan_model_alarm.dart';
 import 'package:muslim_schedule/features/alarm/domains/models/model_schedule.dart';
-import 'package:audioplayers/audioplayers.dart'; // Tambahkan plugin audioplayers
+import 'package:audioplayers/audioplayers.dart';
+import 'package:muslim_schedule/features/alarm/presentation/widgets/shimmer_loading.dart'; // Tambahkan plugin audioplayers
 
 final AudioPlayer audioPlayer = AudioPlayer();
 bool isPlaying = false;
@@ -27,12 +29,15 @@ class _AlarmPageState extends State<AlarmPage> {
   String lat = '';
   String long = '';
   bool wait = true;
+  List<bool> statusList = [];
 
   @override
   void initState() {
     super.initState();
     initLocation();
   }
+
+  final dbservice = DatabaseService();
 
   Future<void> fetchlocation() async {
     if (!mounted) return;
@@ -51,14 +56,29 @@ class _AlarmPageState extends State<AlarmPage> {
       final result = await apialadhanalarm.fetchapialarm();
 
       if (!mounted) return;
+      //       List<bool> statusList = await Future.wait(
+      //   schedules.map((schedule) => dbservice.readData(schedule['title']))
+      // );
+
+      for (var schedule in schedules) {
+        bool status = await dbservice.readData(
+          schedule['title'],
+        ); // Accessing schedule['title']
+        statusList.add(status);
+      }
 
       setState(() {
-        schedules[0]['waktu'] = result.imsak;
+        // schedules[0]['waktu'] = result.imsak;
         schedules[1]['waktu'] = result.shubuh;
         schedules[2]['waktu'] = result.dzuhur;
         schedules[3]['waktu'] = result.ashar;
         schedules[4]['waktu'] = result.maghrib;
         schedules[5]['waktu'] = result.isya;
+
+        for (int i = 0; i < schedules.length; i++) {
+          schedules[i]['status'] =
+              statusList[i]; // ✅ Assign resolved Future<bool>
+        }
         isLoading = false;
         wait = false;
       });
@@ -114,21 +134,24 @@ class _AlarmPageState extends State<AlarmPage> {
         title: Text('Alarm', style: Theme.of(context).textTheme.headlineLarge),
         centerTitle: true,
       ),
-      body:
-          wait
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                child: Column(
-                  children: [
-                    Container(
-                      width: MediaQuery.of(context).size.width,
-                      height: MediaQuery.of(context).size.height * 0.35,
-                      color: Colors.green.shade400,
-                      child: Center(
-                        child: Transform.scale(
-                          scale: 0.9,
-                          child: Opacity(
-                            opacity: 0.50,
+      body: AnimatedSwitcher(
+        duration: Duration(milliseconds: 500), // Durasi animasi transisi
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        child:
+            wait
+                ? ShimmerLoading()
+                : SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: MediaQuery.of(context).size.width,
+                        height: MediaQuery.of(context).size.height * 0.3,
+                        color: Colors.green.shade400,
+                        child: Center(
+                          child: Transform.scale(
+                            scale: 0.9,
                             child: Container(
                               child: AnimatedAnalogClock(
                                 backgroundImage: AssetImage(
@@ -147,41 +170,55 @@ class _AlarmPageState extends State<AlarmPage> {
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: 20),
-                    Text(
-                      'Jadwal Hari ini',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    ListView.builder(
-                      shrinkWrap: true,
+                      SizedBox(height: 20),
+                      Text(
+                        'Jadwal Hari ini',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      ListView.builder(
+                        shrinkWrap: true,
 
-                      itemCount: schedules.length,
-                      itemBuilder: (context, index) {
-                        return SwitchListTile(
-                          title: Text(schedules[index]["title"]),
-                          subtitle: Text("Waktu: ${schedules[index]["waktu"]}"),
-                          value: schedules[index]["status"],
-                          onChanged: (bool value) {
-                            setState(() {
-                              schedules[index]["status"] = value;
-                            });
+                        itemCount: schedules.length,
+                        itemBuilder: (context, index) {
+                          return SwitchListTile(
+                            title: Text(schedules[index]["title"]),
+                            subtitle: Text(
+                              "Waktu: ${schedules[index]["waktu"]}",
+                            ),
+                            value: schedules[index]["status"],
+                            onChanged: (bool value) async {
+                              setState(() {
+                                schedules[index]["status"] = value;
+                              });
 
-                            if (value) {
-                              scheduleAlarm(
-                                schedules[index]["id"],
-                                schedules[index]["waktu"],
-                              );
-                            } else {
-                              cancelAlarm(schedules[index]["id"]);
-                            }
-                          },
-                        );
-                      },
-                    ),
-                  ],
+                              if (value) {
+                                scheduleAlarm(
+                                  schedules[index]["id"],
+                                  schedules[index]["waktu"],
+                                );
+                              } else {
+                                cancelAlarm(schedules[index]["id"]);
+                              }
+
+                              try {
+                                await dbservice.setDocumentWithMerge(
+                                  schedules[index]["title"],
+                                  schedules[index]["status"],
+                                );
+                                await dbservice.readData(
+                                  schedules[index]["title"],
+                                );
+                              } catch (e) {
+                                print("Failed to update database: $e");
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+      ),
     );
   }
 }
@@ -227,7 +264,7 @@ Future<void> showNotification() async {
         importance: Importance.max,
         priority: Priority.high,
         playSound: true,
-        sound: RawResourceAndroidNotificationSound('onii_chan'),
+        sound: RawResourceAndroidNotificationSound('alarm_2'),
       );
 
   const NotificationDetails platformChannelSpecifics = NotificationDetails(
@@ -245,7 +282,7 @@ Future<void> showNotification() async {
 // ✅ Fungsi untuk Memainkan Suara Alarm
 Future<void> playAlarmSound() async {
   if (!isPlaying) {
-    await audioPlayer.play(AssetSource('sounds/onii_chan.mp3'));
+    await audioPlayer.play(AssetSource('sounds/alarm_2.mp3'));
     isPlaying = true;
   }
 }

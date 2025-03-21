@@ -21,44 +21,61 @@ class _NavigationState extends State<Navigation> {
     AlarmPage(),
   ];
 
-  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: AnimatedSwitcher(
-        duration: Duration(milliseconds: 300), // Animation speed
+        duration: const Duration(milliseconds: 300),
         transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(opacity: animation, child: child);
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 0.1),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
         },
-        child: pages[selectedIndex], // AnimatedSwitcher watches this widget
+        child: pages[selectedIndex],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.green,
+          color: Colors.white.withValues(alpha: 0.9),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withValues(),
-              spreadRadius: 5,
-              blurRadius: 7,
-              offset: Offset(0, 3), // changes position of shadow
+              color: Colors.black.withValues(alpha: 0.1),
+              spreadRadius: 2,
+              blurRadius: 10,
+              offset: const Offset(0, -2),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 10),
           child: GNav(
-            backgroundColor: Colors.green,
-            tabBackgroundColor: Colors.grey.shade400,
+            rippleColor: Colors.green.withValues(alpha: 0.3),
+            hoverColor: Colors.green.withValues(alpha: 0.2),
+            tabBackgroundColor: Colors.green.shade100,
+            backgroundColor: Colors.transparent,
+            color: Colors.grey.shade600,
+            activeColor: Colors.green.shade700,
+            iconSize: 26,
+            padding: const EdgeInsets.all(14),
             gap: 8,
-            padding: EdgeInsets.all(16),
             onTabChange: (index) {
               setState(() {
                 selectedIndex = index;
               });
             },
             tabs: const [
-              GButton(icon: Icons.home, text: 'Home'),
-              GButton(icon: Icons.calendar_month, text: 'Calender'),
+              GButton(icon: Icons.home_rounded, text: 'Home'),
+              GButton(icon: Icons.calendar_today_rounded, text: 'Calendar'),
               GButton(icon: Icons.alarm_rounded, text: 'Alarm'),
             ],
           ),

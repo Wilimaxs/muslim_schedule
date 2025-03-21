@@ -1,5 +1,7 @@
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:muslim_schedule/features/calender/domains/api/data_calender.dart';
 import 'package:muslim_schedule/features/calender/presentation/pages/event.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -17,12 +19,45 @@ class _CalenderPageState extends State<CalenderPage> {
   TextEditingController eventController = TextEditingController();
   late final ValueNotifier<List<Event>> selectedEvents;
 
-  @override
-  void initState() {
-    super.initState();
-    selectedDay = today;
-    selectedEvents = ValueNotifier(getEventsForDay(selectedDay!));
+  final dbservice = databasecalender();
+
+@override
+void initState() {
+  super.initState();
+  selectedDay = today;
+  selectedEvents = ValueNotifier(getEventsForDay(selectedDay!));
+  
+  // Load events from Firebase
+  loadEventsFromFirebase();
+}
+
+Future<void> loadEventsFromFirebase() async {
+  final dbservice = databasecalender();
+  final eventsList = await dbservice.getdata();
+  
+  setState(() {
+    events.clear();
+    for (var eventData in eventsList) {
+      final title = eventData['title'] as String;
+      
+      // Handle Firestore Timestamp conversion
+      final Timestamp timestamp = eventData['tanggal'] as Timestamp;
+      final DateTime eventDate = timestamp.toDate();
+      final dateOnly = DateUtils.dateOnly(eventDate);
+      
+      if (!events.containsKey(dateOnly)) {
+        events[dateOnly] = [];
+      }
+      
+      events[dateOnly]!.add(Event(title, getRandomColor()));
+    }
+  });
+  
+  // Update the selected events
+  if (selectedDay != null) {
+    selectedEvents.value = getEventsForDay(selectedDay!);
   }
+}
 
   List<Event> getEventsForDay(DateTime day) {
     return events[DateUtils.dateOnly(day)] ?? [];
@@ -80,6 +115,7 @@ class _CalenderPageState extends State<CalenderPage> {
                         events[eventDate]!.add(
                           Event(eventController.text, getRandomColor()),
                         );
+                        dbservice.create(eventController.text, eventDate);
 
                         eventController.clear();
                         Navigator.of(context).pop();
